@@ -37,81 +37,61 @@ npm install
    - API Key
    - API Secret
 
-#### Set Up Backend Token Server
+#### Set Up FastAPI Backend Server
 
-LiveKit requires secure token generation. You need a backend server to generate tokens.
+The project includes a complete FastAPI backend in the `backend-fastapi/` directory.
 
-**Option 1: Quick Node.js Backend**
+**Quick Start:**
 
-Create a simple Express server:
+```bash
+cd backend-fastapi
 
-```javascript
-// server.js
-const express = require('express');
-const { AccessToken } = require('livekit-server-sdk');
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-const app = express();
-app.use(express.json());
+# Install dependencies
+pip install -r requirements.txt
 
-const LIVEKIT_API_KEY = 'your-api-key';
-const LIVEKIT_API_SECRET = 'your-api-secret';
+# Configure environment
+cp .env.example .env
+# Edit .env with your LiveKit credentials
 
-app.post('/api/token', async (req, res) => {
-  const { roomName, participantName } = req.body;
-
-  const token = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
-    identity: participantName,
-  });
-
-  token.addGrant({
-    roomJoin: true,
-    room: roomName,
-    canPublish: true,
-    canSubscribe: true,
-  });
-
-  res.json({ token: await token.toJwt() });
-});
-
-app.listen(3000, () => console.log('Token server running on port 3000'));
+# Run the server
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-**Option 2: Use LiveKit Agents**
+The backend handles:
+- **Token Generation**: Secure JWT tokens for LiveKit room access
+- **Webhook Events**: LiveKit event processing (room events, participant events, etc.)
+- **Voice Agent Integration**: Ready for LiveKit Agents integration
 
-Set up a LiveKit agent for the voice AI functionality:
+See `backend-fastapi/README.md` for detailed setup instructions and deployment options.
 
-```python
-# Install LiveKit agents
-pip install livekit livekit-agents
+### 3. Configure Mobile App
 
-# Create an agent with your preferred AI service (OpenAI, Anthropic, etc.)
+Create `.env` file in the project root:
+
+```bash
+cp .env.example .env
 ```
 
-See [LiveKit Agents documentation](https://docs.livekit.io/agents) for detailed setup.
+Update the `BACKEND_URL` in `.env`:
 
-### 3. Update Configuration
+```env
+# For local development (use your computer's IP address, not localhost)
+BACKEND_URL=http://192.168.1.XXX:8000
 
-Update `src/services/tokenService.ts` with your backend endpoint:
-
-```typescript
-async requestToken(request: TokenRequest): Promise<string> {
-  const response = await fetch('https://your-backend.com/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  });
-  const data = await response.json();
-  return data.token;
-}
+# For production (use your deployed backend URL)
+BACKEND_URL=https://your-backend.railway.app
 ```
 
-Update `src/config/livekit.ts` with your LiveKit URL:
-
-```typescript
-export const LIVEKIT_CONFIG = {
-  url: 'wss://your-project.livekit.cloud',
-};
-```
+**Important for local development:**
+- Don't use `localhost` or `127.0.0.1` - the mobile app can't reach it
+- Use your computer's local network IP address
+- On Mac/Linux: `ifconfig | grep inet`
+- On Windows: `ipconfig`
+- Or use a tunnel service like ngrok: `ngrok http 8000`
 
 ## Running the App
 
@@ -191,6 +171,25 @@ To create a voice agent for onboarding:
 3. **Connect agent to room** when user joins
 
 See the [LiveKit Agents Guide](https://docs.livekit.io/agents/quickstart/) for detailed instructions.
+
+## Webhook Integration
+
+The FastAPI backend includes webhook handlers for LiveKit events. Configure webhooks in LiveKit Cloud:
+
+1. Go to your LiveKit project dashboard
+2. Navigate to **Settings** > **Webhooks**
+3. Add webhook URL: `https://your-backend.com/api/webhooks/livekit`
+4. Copy the webhook secret and add to backend `.env` file
+
+**Supported Events:**
+- `room_started` - Room created
+- `room_finished` - Room ended
+- `participant_joined` - User joined
+- `participant_left` - User left
+- `track_published` - Audio/video started
+- `recording_finished` - Recording completed
+
+Customize event handlers in `backend-fastapi/main.py` to add your business logic.
 
 ## Customization
 
